@@ -204,6 +204,7 @@ function renderIdeas() {
             <span class="badge">${escapeHtml(idea.category)}</span>
             <footer>
               <small>${formatDate(idea.createdAt)}</small>
+              <button class="small danger" data-delete-idea="${idea.id}">删除</button>
               <button data-generate-from-idea="${idea.id}">成文</button>
             </footer>
           </article>
@@ -324,6 +325,7 @@ function articleRow(article) {
       <span>${escapeHtml(article.category)} · ${escapeHtml(article.status)} · ${formatDate(article.updatedAt || article.createdAt)}</span>
       <footer>
         <span class="badge ${compliance}">${escapeHtml(article.compliance?.message || "未检查")}</span>
+        <button type="button" class="small danger" data-delete-article="${article.id}">删除</button>
       </footer>
     </article>
   `;
@@ -467,9 +469,24 @@ document.addEventListener("click", async (event) => {
 
   const ideaButton = event.target.closest("[data-generate-from-idea]");
   if (ideaButton) {
+    event.stopPropagation();
     const idea = state.ideas.find((item) => item.id === ideaButton.dataset.generateFromIdea);
     await generateArticle({ title: idea.title, angle: idea.angle, category: idea.category });
     setView("articles");
+  }
+
+  const deleteIdeaButton = event.target.closest("[data-delete-idea]");
+  if (deleteIdeaButton) {
+    event.stopPropagation();
+    await deleteIdea(deleteIdeaButton.dataset.deleteIdea);
+    return;
+  }
+
+  const deleteArticleButton = event.target.closest("[data-delete-article]");
+  if (deleteArticleButton) {
+    event.stopPropagation();
+    await deleteArticle(deleteArticleButton.dataset.deleteArticle);
+    return;
   }
 
   const articleRowElement = event.target.closest("[data-article-id]");
@@ -518,6 +535,27 @@ document.addEventListener("click", async (event) => {
     await fetchImageModelsForProvider(fetchImageModelsButton.dataset.fetchImageModels);
   }
 });
+
+async function deleteIdea(ideaId) {
+  const idea = state.ideas.find((item) => item.id === ideaId);
+  if (!idea) return;
+  if (!window.confirm(`删除选题「${idea.title}」？`)) return;
+  const data = await api(`/api/ideas/${ideaId}`, { method: "DELETE" });
+  state = data.state;
+  renderAll();
+  showAlert("选题已删除。");
+}
+
+async function deleteArticle(articleId) {
+  const article = state.articles.find((item) => item.id === articleId);
+  if (!article) return;
+  if (!window.confirm(`删除文章「${article.title}」？相关排期也会删除。`)) return;
+  const data = await api(`/api/articles/${articleId}`, { method: "DELETE" });
+  state = data.state;
+  if (activeArticleId === articleId) activeArticleId = state.articles[0]?.id || null;
+  renderAll();
+  showAlert("文章已删除。");
+}
 
 function providerFromBox(providerId) {
   const box = document.querySelector(`[data-provider-box="${providerId}"]`);

@@ -1282,6 +1282,25 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, { article, state: publicState(state) });
   }
 
+  if (req.method === "DELETE" && pathname.startsWith("/api/ideas/")) {
+    const ideaId = pathname.split("/").at(-1);
+    const before = state.ideas.length;
+    state.ideas = state.ideas.filter((item) => item.id !== ideaId);
+    if (state.ideas.length === before) return sendJson(res, 404, { error: "选题不存在。" });
+    await saveState(state);
+    return sendJson(res, 200, { state: publicState(state) });
+  }
+
+  if (req.method === "DELETE" && pathname.startsWith("/api/articles/")) {
+    const articleId = pathname.split("/").at(-1);
+    const before = state.articles.length;
+    state.articles = state.articles.filter((item) => item.id !== articleId);
+    if (state.articles.length === before) return sendJson(res, 404, { error: "文章不存在。" });
+    state.jobs = state.jobs.filter((job) => job.articleId !== articleId);
+    await saveState(state);
+    return sendJson(res, 200, { state: publicState(state) });
+  }
+
   if (req.method === "PATCH" && pathname.startsWith("/api/articles/")) {
     const input = await readJson(req);
     const articleId = pathname.split("/").at(-1);
