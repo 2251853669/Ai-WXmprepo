@@ -1,0 +1,3 @@
+data/store.json
+public/generated-images/*.svg
+.DS_Store

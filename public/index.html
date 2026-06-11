@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 工具运营台</title>
+    <link rel="stylesheet" href="/styles.css?v=8" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">AI</span>
+          <div>
+            <strong id="workspaceName">运营台</strong>
+            <span>公众号内容自动化</span>
+          </div>
+        </div>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-button is-active" data-view="dashboard"><span>总</span>总览</button>
+          <button class="nav-button" data-view="ideas"><span>题</span>选题</button>
+          <button class="nav-button" data-view="articles"><span>文</span>文章</button>
+          <button class="nav-button" data-view="schedule"><span>发</span>发布</button>
+          <button class="nav-button" data-view="settings"><span>设</span>设置</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="viewTitle">总览</h1>
+            <p id="viewSubtitle">选题、成文、排期和发布状态集中处理。</p>
+          </div>
+          <div class="model-switcher">
+            <div class="provider-select">
+              <label for="providerSelect">文章模型</label>
+              <select id="providerSelect"></select>
+            </div>
+            <div class="provider-select">
+              <label for="imageProviderSelect">图片模型</label>
+              <select id="imageProviderSelect"></select>
+            </div>
+          </div>
+        </header>
+
+        <section id="alert" class="alert" hidden></section>
+
+        <section class="task-panel">
+          <div class="task-head">
+            <h2>任务列表</h2>
+            <button id="clearFinishedTasks" type="button" class="small secondary">清除完成</button>
+          </div>
+          <div id="taskList" class="task-list"></div>
+        </section>
+
+        <section id="dashboard" class="view is-active">
+          <div class="metrics">
+            <article class="metric">
+              <span>选题</span>
+              <strong id="metricIdeas">0</strong>
+            </article>
+            <article class="metric">
+              <span>草稿</span>
+              <strong id="metricDrafts">0</strong>
+            </article>
+            <article class="metric">
+              <span>排期</span>
+              <strong id="metricJobs">0</strong>
+            </article>
+            <article class="metric">
+              <span>已发布</span>
+              <strong id="metricPublished">0</strong>
+            </article>
+          </div>
+
+          <div class="split">
+            <section class="panel command-panel">
+              <div class="panel-head">
+                <h2>快速生成</h2>
+                <button id="quickGenerate">生成选题</button>
+              </div>
+              <textarea id="quickTopic" rows="5">AI 工具、Mac 正版软件与开源替代、开发工具、软件分享</textarea>
+            </section>
+            <section class="panel activity-panel">
+              <div class="panel-head">
+                <h2>最新文章</h2>
+              </div>
+              <div id="latestArticles" class="list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="ideas" class="view">
+          <form id="ideaForm" class="toolbar idea-toolbar">
+            <input id="ideaTopic" placeholder="输入主题，例如：AI 编程助手、Mac 效率工具、开源替代方案" />
+            <input id="ideaCount" type="number" min="1" max="12" value="6" />
+            <button type="submit">生成选题</button>
+          </form>
+          <div id="ideaList" class="grid-list"></div>
+        </section>
+
+        <section id="articles" class="view">
+          <form id="articleForm" class="composer">
+            <div class="field-row">
+              <input id="articleTitle" placeholder="文章标题或选题" />
+              <input id="articleCategory" placeholder="分类" />
+            </div>
+            <textarea id="articleAngle" rows="3" placeholder="文章角度"></textarea>
+            <button type="submit">生成文章</button>
+          </form>
+          <div class="editor-layout">
+            <div id="articleList" class="list"></div>
+            <article class="editor">
+              <div id="imagePreview" class="image-preview"></div>
+              <input id="editTitle" placeholder="选择文章后编辑标题" />
+              <input id="editDigest" placeholder="摘要" />
+              <textarea id="editContent" rows="18" placeholder="文章正文"></textarea>
+              <div class="editor-actions">
+                <span id="complianceBadge" class="badge">未选择</span>
+                <button id="saveArticle">保存</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="schedule" class="view">
+          <form id="scheduleForm" class="toolbar schedule-toolbar">
+            <select id="scheduleArticle"></select>
+            <input id="scheduleTime" type="datetime-local" />
+            <select id="publishMode">
+              <option value="local">本地标记</option>
+              <option value="webhook">Webhook</option>
+              <option value="wechat_draft">上传微信草稿</option>
+              <option value="wechat_publish">提交微信发布</option>
+            </select>
+            <button type="submit">加入排期</button>
+          </form>
+          <div class="publish-actions">
+            <button id="publishNow">立即执行</button>
+          </div>
+          <div id="jobList" class="grid-list"></div>
+        </section>
+
+        <section id="settings" class="view">
+          <form id="settingsForm" class="settings">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>账号定位</h2>
+                <button id="exportConfig" type="button" class="secondary">导出配置</button>
+              </div>
+              <div class="field-row">
+                <input id="settingWorkspace" placeholder="工作台名称" />
+                <input id="settingAuthor" placeholder="默认作者" />
+              </div>
+              <textarea id="settingAudience" rows="3" placeholder="读者画像"></textarea>
+              <textarea id="settingTone" rows="3" placeholder="语气风格"></textarea>
+              <input id="settingCategories" placeholder="分类，用逗号分隔" />
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>文字模型供应商</h2>
+                <div class="inline-tools">
+                  <select id="providerTemplateSelect"></select>
+                  <button id="addProvider" type="button">新增配置</button>
+                </div>
+              </div>
+              <div id="providerSettings" class="provider-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>图片模型供应商</h2>
+                <div class="inline-tools">
+                  <select id="imageProviderTemplateSelect"></select>
+                  <button id="addImageProvider" type="button">新增配置</button>
+                </div>
+              </div>
+              <div id="imageProviderSettings" class="provider-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2>发布配置</h2></div>
+              <input id="webhookUrl" placeholder="Webhook URL" />
+              <div class="field-row">
+                <input id="wechatAppId" placeholder="公众号 AppID" />
+                <input id="wechatAppSecret" placeholder="公众号 AppSecret" type="password" />
+              </div>
+              <div class="field-row">
+                <input id="thumbMediaId" placeholder="封面素材 thumb_media_id" />
+                <input id="contentSourceUrl" placeholder="原文链接" />
+              </div>
+              <div class="upload-row">
+                <input id="wechatThumbFile" type="file" accept="image/*" />
+                <button id="uploadWechatThumb" type="button" class="secondary">上传封面到素材库</button>
+              </div>
+              <label class="checkline">
+                <input id="autoPublishEnabled" type="checkbox" />
+                <span>允许到点自动执行排期</span>
+              </label>
+            </section>
+
+            <button type="submit">保存设置</button>
+          </form>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js?v=8" type="module"></script>
+  </body>
+</html>
