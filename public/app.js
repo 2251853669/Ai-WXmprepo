@@ -322,7 +322,7 @@ function articleRow(article) {
   return `
     <article class="article-row ${article.id === activeArticleId ? "is-active" : ""}" data-article-id="${article.id}">
       <strong>${escapeHtml(article.title)}</strong>
-      <span>${escapeHtml(article.category)} · ${escapeHtml(article.status)} · ${formatDate(article.updatedAt || article.createdAt)}</span>
+      <span>${escapeHtml(article.category)} · ${escapeHtml(article.status)} · ${formatDate(article.updatedAt || article.createdAt)}${article.sourceUrl ? " · 外链改写" : ""}</span>
       <footer>
         <span class="badge ${compliance}">${escapeHtml(article.compliance?.message || "未检查")}</span>
         <button type="button" class="small danger" data-delete-article="${article.id}">删除</button>
@@ -372,8 +372,9 @@ async function generateIdeas(topic, count = 6) {
 }
 
 async function generateArticle(input) {
-  const data = await withTask("生成文章", `标题：${input.title || input.topic || "未命名"}；含动态配图`, async (task) => {
-    updateTask(task, { message: "等待文章模型写稿并规划配图" });
+  const isRewrite = Boolean(input.sourceUrl);
+  const data = await withTask(isRewrite ? "外链改写文章" : "生成文章", `${input.sourceUrl ? `链接：${input.sourceUrl}` : `标题：${input.title || input.topic || "未命名"}`}；含动态配图`, async (task) => {
+    updateTask(task, { message: isRewrite ? "抓取外部文章并等待模型原创改写" : "等待文章模型写稿并规划配图" });
     return api("/api/generate/article", {
       method: "POST",
       body: { ...input, providerId: $("#providerSelect").value, imageProviderId: $("#imageProviderSelect").value }
@@ -711,7 +712,8 @@ $("#articleForm").addEventListener("submit", async (event) => {
   await generateArticle({
     title: $("#articleTitle").value,
     angle: $("#articleAngle").value,
-    category: $("#articleCategory").value
+    category: $("#articleCategory").value,
+    sourceUrl: $("#articleSourceUrl").value.trim()
   });
 });
 

@@ -639,6 +639,74 @@ function parseModelJson(text, fallback) {
   }
 }
 
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractArticleFromHtml(html = "", url = "") {
+  const title =
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    html.match(/<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ||
+    "";
+  const description =
+    html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    "";
+  const articleMatch =
+    html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+    html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const source = articleMatch?.[1] || html;
+  const text = stripHtml(source);
+  return {
+    url,
+    title: stripHtml(title),
+    description: stripHtml(description),
+    text: text.slice(0, 12000)
+  };
+}
+
+async function fetchExternalArticle(url) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error("外部链接格式不正确。");
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("只支持 http/https 外部链接。");
+  }
+  const response = await fetch(parsedUrl, {
+    headers: {
+      "user-agent": "Mozilla/5.0 WeChatOpsConsole/1.0",
+      accept: "text/html,application/xhtml+xml"
+    }
+  });
+  if (!response.ok) throw new Error(`读取外部文章失败：${response.status}`);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+    throw new Error("外部链接不是可读取的 HTML 文章。");
+  }
+  const html = await response.text();
+  const article = extractArticleFromHtml(html, parsedUrl.toString());
+  if (article.text.length < 200) {
+    throw new Error("没有从外部链接中提取到足够正文，可能需要登录或页面不支持抓取。");
+  }
+  return article;
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -929,9 +997,10 @@ async function generateIdeas(state, input) {
 }
 
 async function generateArticle(state, input) {
+  const sourceArticle = input.sourceUrl ? await fetchExternalArticle(input.sourceUrl) : null;
   const idea = {
-    title: input.title || input.topic || "AI 工具实用指南",
-    angle: input.angle || "从真实工作流出发，给出可执行建议",
+    title: input.title || input.topic || sourceArticle?.title || "AI 工具实用指南",
+    angle: input.angle || (sourceArticle ? "基于外部文章提取要点，写成原创公众号解读" : "从真实工作流出发，给出可执行建议"),
     category: input.category || state.settings.categories[0]
   };
   const normalized = normalizeTopic(idea.title);
@@ -945,7 +1014,7 @@ async function generateArticle(state, input) {
       {
         role: "system",
         content:
-          "你是公众号作者。只输出 JSON 对象。不要提供破解下载、激活码、注册机、绕过授权、盗版资源入口或操作步骤。涉及软件授权争议时，必须转向正版优惠、官方试用、开源替代、安全风险和合规采购。"
+          "你是公众号作者。只输出 JSON 对象。不要提供破解下载、激活码、注册机、绕过授权、盗版资源入口或操作步骤。涉及软件授权争议时，必须转向正版优惠、官方试用、开源替代、安全风险和合规采购。若用户提供外部文章，只能提取事实和要点，写成原创解读、评论或教程，不要大段照搬原文。"
       },
       {
         role: "user",
@@ -956,6 +1025,19 @@ async function generateArticle(state, input) {
 读者：${state.settings.audience}
 语气：${state.settings.tone}
 作者：${state.settings.defaultAuthor || "未署名"}
+${sourceArticle ? `
+外部文章来源：${sourceArticle.url}
+外部文章标题：${sourceArticle.title}
+外部文章摘要：${sourceArticle.description}
+外部文章正文摘录：
+${sourceArticle.text}
+
+改写要求：
+- 不要逐段同义替换，不要保留原文结构。
+- 提炼核心事实、观点和可执行建议，写成面向本账号读者的原创文章。
+- 正文末尾用一行标注“参考来源：${sourceArticle.url}”。
+- 如原文是新闻/产品信息，加入自己的分析、适用人群和风险提醒。
+` : ""}
 
 输出 JSON 字段：
 title, digest, content, coverPrompt, category, imagePlan
@@ -975,6 +1057,8 @@ imagePlan 是数组，由你根据正文实际需要决定数量：必须包含 
     coverPrompt: String(parsed.coverPrompt || fallback.coverPrompt),
     imagePlan: Array.isArray(parsed.imagePlan) ? parsed.imagePlan : fallback.imagePlan,
     category: String(parsed.category || idea.category || "AI 工具"),
+    sourceUrl: sourceArticle?.url || "",
+    sourceTitle: sourceArticle?.title || "",
     status: "draft",
     provider: input.providerId || state.settings.defaultProvider,
     compliance: complianceReport(`${parsed.title || ""}\n${body}`),
