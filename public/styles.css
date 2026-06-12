@@ -631,6 +631,7 @@ textarea {
 }
 
 .idea-card footer,
+.job-card footer,
 .article-row footer {
   display: flex;
   align-items: center;

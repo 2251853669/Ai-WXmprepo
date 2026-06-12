@@ -1139,11 +1139,100 @@ async function uploadWechatImageMaterial(publishing, file) {
   };
 }
 
+function mimeFromImageUrl(url = "") {
+  const clean = String(url).split("?")[0].toLowerCase();
+  if (clean.endsWith(".jpg") || clean.endsWith(".jpeg")) return "image/jpeg";
+  if (clean.endsWith(".png")) return "image/png";
+  if (clean.endsWith(".gif")) return "image/gif";
+  if (clean.endsWith(".bmp")) return "image/bmp";
+  if (clean.endsWith(".webp")) return "image/webp";
+  if (clean.endsWith(".svg")) return "image/svg+xml";
+  return "image/png";
+}
+
+async function loadArticleImageFile(imageUrl) {
+  const value = String(imageUrl || "").trim();
+  if (!value) throw new Error("图片地址为空。");
+
+  if (value.startsWith("/generated-images/")) {
+    const filePath = path.normalize(path.join(PUBLIC_DIR, value));
+    if (!filePath.startsWith(GENERATED_IMAGE_DIR)) {
+      throw new Error("图片路径不在生成图片目录内。");
+    }
+    return {
+      filename: path.basename(filePath),
+      mimeType: mimeFromImageUrl(filePath),
+      buffer: await readFile(filePath)
+    };
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    const response = await fetch(value);
+    if (!response.ok) throw new Error(`读取远程图片失败：${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+      filename: path.basename(new URL(value).pathname) || "image.png",
+      mimeType: response.headers.get("content-type") || mimeFromImageUrl(value),
+      buffer: Buffer.from(arrayBuffer)
+    };
+  }
+
+  throw new Error(`不支持的图片地址：${value}`);
+}
+
+async function uploadWechatContentImage(accessToken, file) {
+  const form = new FormData();
+  form.append("media", new Blob([file.buffer], { type: file.mimeType }), file.filename || "image.png");
+  const response = await fetch(`https://api.weixin.qq.com/cgi-bin/media/uploadimg?access_token=${encodeURIComponent(accessToken)}`, {
+    method: "POST",
+    body: form
+  });
+  const data = await response.json();
+  if (!response.ok || data.errcode) {
+    throw new Error(data.errmsg || "上传微信正文图片失败");
+  }
+  if (!data.url) throw new Error("微信没有返回正文图片 URL。");
+  return data.url;
+}
+
+async function prepareWechatArticleContent(settings, article) {
+  const accessToken = await getWechatToken(settings.publishing);
+  let content = article.content || "";
+  const images = Array.isArray(article.images) ? article.images : [];
+  const replacements = new Map();
+
+  for (const image of images) {
+    if (!image.url || replacements.has(image.url)) continue;
+    const file = await loadArticleImageFile(image.url);
+    const wechatUrl = await uploadWechatContentImage(accessToken, file);
+    replacements.set(image.url, wechatUrl);
+  }
+
+  for (const [from, to] of replacements.entries()) {
+    content = content.split(`](${from})`).join(`](${to})`);
+  }
+
+  if (!settings.publishing.defaultThumbMediaId) {
+    const cover = images.find((image) => image.type === "cover") || images[0];
+    if (cover?.url) {
+      const file = await loadArticleImageFile(cover.url);
+      const material = await uploadWechatImageMaterial(settings.publishing, file);
+      settings.publishing.defaultThumbMediaId = material.mediaId;
+    }
+  }
+
+  return {
+    content,
+    uploadedImages: replacements.size
+  };
+}
+
 async function createWechatDraft(settings, article) {
   const publishing = settings.publishing;
   if (!publishing.wechatAppId || !publishing.wechatAppSecret) {
     throw new Error("缺少公众号 AppID 或 AppSecret。");
   }
+  const prepared = await prepareWechatArticleContent(settings, article);
   if (!publishing.defaultThumbMediaId) {
     throw new Error("缺少微信封面素材 thumb_media_id。文章已生成本地配图，但微信公众号草稿封面必须使用素材库 media_id。");
   }
@@ -1158,7 +1247,7 @@ async function createWechatDraft(settings, article) {
           title: article.title,
           author: settings.defaultAuthor || "",
           digest: article.digest,
-          content: mdToHtml(article.content),
+          content: mdToHtml(prepared.content),
           content_source_url: publishing.contentSourceUrl || "",
           thumb_media_id: publishing.defaultThumbMediaId,
           need_open_comment: 0,
@@ -1381,6 +1470,15 @@ async function handleApi(req, res, pathname) {
     state.articles = state.articles.filter((item) => item.id !== articleId);
     if (state.articles.length === before) return sendJson(res, 404, { error: "文章不存在。" });
     state.jobs = state.jobs.filter((job) => job.articleId !== articleId);
+    await saveState(state);
+    return sendJson(res, 200, { state: publicState(state) });
+  }
+
+  if (req.method === "DELETE" && pathname.startsWith("/api/jobs/")) {
+    const jobId = pathname.split("/").at(-1);
+    const before = state.jobs.length;
+    state.jobs = state.jobs.filter((job) => job.id !== jobId);
+    if (state.jobs.length === before) return sendJson(res, 404, { error: "发布任务不存在。" });
     await saveState(state);
     return sendJson(res, 200, { state: publicState(state) });
   }

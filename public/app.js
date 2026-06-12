@@ -233,6 +233,9 @@ function renderSchedule() {
             <p>${escapeHtml(job.mode)} · ${formatDate(job.publishAt)}</p>
             <span class="badge ${job.status === "failed" ? "blocked" : ""}">${escapeHtml(job.status)}</span>
             ${job.lastError ? `<p>${escapeHtml(job.lastError)}</p>` : ""}
+            <footer>
+              <button type="button" class="small danger" data-delete-job="${job.id}">删除</button>
+            </footer>
           </article>
         `;
       })
@@ -490,6 +493,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const deleteJobButton = event.target.closest("[data-delete-job]");
+  if (deleteJobButton) {
+    event.stopPropagation();
+    await deleteJob(deleteJobButton.dataset.deleteJob);
+    return;
+  }
+
   const articleRowElement = event.target.closest("[data-article-id]");
   if (articleRowElement) {
     activeArticleId = articleRowElement.dataset.articleId;
@@ -556,6 +566,29 @@ async function deleteArticle(articleId) {
   if (activeArticleId === articleId) activeArticleId = state.articles[0]?.id || null;
   renderAll();
   showAlert("文章已删除。");
+}
+
+async function deleteJob(jobId) {
+  const job = state.jobs.find((item) => item.id === jobId);
+  if (!job) return;
+  const article = state.articles.find((item) => item.id === job.articleId);
+  const title = article?.title || "文章已删除";
+  if (!window.confirm(`删除发布任务「${title}」？`)) return;
+  try {
+    const data = await withTask("删除发布任务", title, async (task) => {
+      updateTask(task, { message: "正在从发布队列移除" });
+      return api(`/api/jobs/${jobId}`, { method: "DELETE" });
+    });
+    state = data.state;
+    renderAll();
+    showAlert("发布任务已删除。");
+  } catch (error) {
+    const message =
+      error.message === "接口不存在。"
+        ? "删除接口不存在：当前后端还是旧进程，请重启 npm start 后再试。"
+        : error.message;
+    showAlert(message, "error", { sticky: true });
+  }
 }
 
 function providerFromBox(providerId) {
