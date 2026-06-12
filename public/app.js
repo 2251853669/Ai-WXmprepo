@@ -321,13 +321,11 @@ function renderSettings() {
 }
 
 function articleRow(article) {
-  const compliance = article.compliance?.status || "clear";
   return `
     <article class="article-row ${article.id === activeArticleId ? "is-active" : ""}" data-article-id="${article.id}">
       <strong>${escapeHtml(article.title)}</strong>
       <span>${escapeHtml(article.category)} · ${escapeHtml(article.status)} · ${formatDate(article.updatedAt || article.createdAt)}${article.sourceUrl ? " · 外链改写" : ""}</span>
       <footer>
-        <span class="badge ${compliance}">${escapeHtml(article.compliance?.message || "未检查")}</span>
         <button type="button" class="small danger" data-delete-article="${article.id}">删除</button>
       </footer>
     </article>
@@ -349,9 +347,6 @@ function fillEditor() {
   $("#editTitle").value = article?.title || "";
   $("#editDigest").value = article?.digest || "";
   $("#editContent").value = article?.content || "";
-  const badge = $("#complianceBadge");
-  badge.textContent = article?.compliance?.message || "未选择";
-  badge.className = `badge ${article?.compliance?.status || ""}`;
 }
 
 function setView(viewName) {

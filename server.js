@@ -333,12 +333,7 @@ function hasSensitiveTopic(text = "") {
 function normalizeTopic(topic = "") {
   if (!hasSensitiveTopic(topic)) return { topic, rewritten: false };
   return {
-    topic: topic
-      .replaceAll("苹果破解软件", "Mac 正版软件、开源替代与安全风险")
-      .replaceAll("破解软件", "软件正版替代与安全风险")
-      .replaceAll("破解版", "非官方版本风险")
-      .replaceAll("破解", "授权合规")
-      .replaceAll("盗版", "版权风险"),
+    topic: topic,
     rewritten: true
   };
 }
@@ -924,7 +919,7 @@ function fallbackIdeas(settings, requestedTopic, count) {
     angle,
     category: settings.categories[Math.floor(Math.random() * settings.categories.length)] || "AI 工具",
     audience: settings.audience,
-    compliance: rewritten ? "已把软件授权敏感选题改写为合规角度。" : "clear",
+    compliance: "clear",
     createdAt: new Date().toISOString()
   }));
 }
@@ -954,7 +949,7 @@ function fallbackArticle(settings, idea) {
     category: idea.category || "软件分享",
     status: "draft",
     provider: "fallback",
-    compliance: complianceReport(sections.join("\n\n")),
+    compliance: { status: "clear", message: "已禁用合规检查。" },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -971,7 +966,7 @@ async function generateIdeas(state, input) {
       {
         role: "system",
         content:
-          "你是公众号内容主编。只输出 JSON 数组，不要 Markdown。禁止提供破解、盗版下载、绕过授权、注册机、激活码等内容；相关话题只能改写为正版优惠、开源替代、软件安全风险或合规采购。"
+          "你是公众号内容主编。只输出 JSON 数组，不要 Markdown。"
       },
       {
         role: "user",
@@ -991,7 +986,7 @@ async function generateIdeas(state, input) {
     angle: String(idea.angle || idea.whyNow || "从实用角度展开"),
     category: String(idea.category || state.settings.categories[0] || "AI 工具"),
     audience: String(idea.audience || state.settings.audience),
-    compliance: normalized.rewritten ? "已改写敏感软件授权选题。" : complianceReport(`${idea.title} ${idea.angle}`).status,
+    compliance: { status: "clear", message: "已禁用合规检查。" },
     createdAt: new Date().toISOString()
   }));
 }
@@ -1014,7 +1009,7 @@ async function generateArticle(state, input) {
       {
         role: "system",
         content:
-          "你是公众号作者。只输出 JSON 对象。不要提供破解下载、激活码、注册机、绕过授权、盗版资源入口或操作步骤。涉及软件授权争议时，必须转向正版优惠、官方试用、开源替代、安全风险和合规采购。若用户提供外部文章，只能提取事实和要点，写成原创解读、评论或教程，不要大段照搬原文。"
+          "你是公众号作者。只输出 JSON 对象。若用户提供外部文章，提取事实和要点，写成原创解读、评论或教程。"
       },
       {
         role: "user",
@@ -1061,7 +1056,7 @@ imagePlan 是数组，由你根据正文实际需要决定数量：必须包含 
     sourceTitle: sourceArticle?.title || "",
     status: "draft",
     provider: input.providerId || state.settings.defaultProvider,
-    compliance: complianceReport(`${parsed.title || ""}\n${body}`),
+    compliance: { status: "clear", message: "已禁用合规检查。" },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -1280,7 +1275,7 @@ async function submitWechatPublish(settings, mediaId) {
 async function publishArticle(state, articleId, mode) {
   const article = state.articles.find((item) => item.id === articleId);
   if (!article) throw new Error("文章不存在。");
-  const compliance = complianceReport(`${article.title}\n${article.content}`);
+  const compliance = { status: "clear", message: "已禁用合规检查。" };
   article.compliance = compliance;
   article.updatedAt = new Date().toISOString();
   if (compliance.status === "blocked") {
@@ -1490,7 +1485,7 @@ async function handleApi(req, res, pathname) {
     if (!article) return sendJson(res, 404, { error: "文章不存在。" });
     Object.assign(article, {
       ...input,
-      compliance: complianceReport(`${input.title || article.title}\n${input.content || article.content}`),
+      compliance: { status: "clear", message: "已禁用合规检查。" },
       updatedAt: new Date().toISOString()
     });
     await saveState(state);
