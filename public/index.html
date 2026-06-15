@@ -113,6 +113,10 @@
             </div>
             <input id="articleSourceUrl" placeholder="外部文章链接，可选。填写后会提取要点并生成原创改写稿" />
             <textarea id="articleAngle" rows="3" placeholder="文章角度"></textarea>
+            <div class="field-row">
+              <input id="articleDriveLink" placeholder="网盘链接（可选），例如：https://pan.quark.cn/s/xxx" />
+              <input id="articleDriveCode" placeholder="提取码（可选），例如：1234" />
+            </div>
             <button type="submit">生成文章</button>
           </form>
           <div class="editor-layout">
@@ -204,6 +208,15 @@
                 <input id="autoPublishEnabled" type="checkbox" />
                 <span>允许到点自动执行排期</span>
               </label>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>网盘分享配置 (实验性)</h2>
+              </div>
+              <div class="field-row">
+                <input id="settingQuarkCookie" placeholder="夸克网盘 Cookie" />
+              </div>
             </section>
 
             <button type="submit">保存设置</button>

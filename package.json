@@ -8,5 +8,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "puppeteer": "^25.1.0",
+    "qrcode": "^1.5.4"
   }
 }

@@ -248,6 +248,7 @@ function renderSettings() {
   $("#settingAudience").value = state.settings.audience || "";
   $("#settingTone").value = state.settings.tone || "";
   $("#settingCategories").value = state.settings.categories.join("，");
+  $("#settingQuarkCookie").value = state.settings.quarkCookie || "";
   $("#webhookUrl").value = state.settings.publishing.webhookUrl || "";
   $("#wechatAppId").value = state.settings.publishing.wechatAppId || "";
   $("#wechatAppSecret").value = state.settings.publishing.wechatAppSecret || "";
@@ -424,6 +425,7 @@ function collectSettings() {
     defaultImageProvider: $("#imageProviderSelect").value,
     providers,
     imageProviders,
+    quarkCookie: $("#settingQuarkCookie").value.trim(),
     publishing: {
       webhookUrl: $("#webhookUrl").value.trim(),
       wechatAppId: $("#wechatAppId").value.trim(),
@@ -741,7 +743,9 @@ $("#articleForm").addEventListener("submit", async (event) => {
     title: $("#articleTitle").value,
     angle: $("#articleAngle").value,
     category: $("#articleCategory").value,
-    sourceUrl: $("#articleSourceUrl").value.trim()
+    sourceUrl: $("#articleSourceUrl").value.trim(),
+    driveLink: $("#articleDriveLink").value.trim(),
+    driveCode: $("#articleDriveCode").value.trim()
   });
 });
 
@@ -871,4 +875,5 @@ $("#publishNow").addEventListener("click", async () => {
   }
 });
 
-load().catch((error) => showAlert(error.message, "error"));
+
+  load().catch((error) => showAlert(error.message, "error"));
